@@ -1,0 +1,1 @@
+# monkeytype-stats-widget
