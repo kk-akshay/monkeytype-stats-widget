@@ -5,7 +5,7 @@ import os
 # --- CONFIGURATION ---
 # PASTE YOUR UID HERE (Example: "605386f9...")
 # Do NOT use your username. Use the UID from the bottom of Monkeytype Settings.
-USERNAME = "Axshay_KK"
+USERNAME = "4vNzgKl0lUPmnuCMFGFtOsGnJnp2"
 API_KEY = os.environ.get("MONKEYTYPE_API_KEY") 
 # ---------------------
 
