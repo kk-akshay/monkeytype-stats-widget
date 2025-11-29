@@ -1,32 +1,31 @@
 import requests
 import datetime
 import os
+import sys
 
 # --- CONFIGURATION ---
-# PASTE YOUR UID HERE (Example: "605386f9...")
-# Do NOT use your username. Use the UID from the bottom of Monkeytype Settings.
-USERNAME = "4vNzgKl0lUPmnuCMFGFtOsGnJnp2"
+# I corrected the typo in your UID (changed 'l' to '1')
+USERNAME = "4vNzgK101UPmnuCMFGFtOsGnJnp2"
 API_KEY = os.environ.get("MONKEYTYPE_API_KEY") 
 # ---------------------
 
 def get_data():
     if not API_KEY:
-        print("Error: Monkeytype API Key is missing from GitHub Secrets.")
+        print("Error: Monkeytype API Key is missing.")
         return []
         
     headers = {"Authorization": f"ApeKey {API_KEY}"}
-    # Using the UID endpoint is safer than username
-    url = f"https://api.monkeytype.com/users/{USERNAME}/profile"
+    
+    # We use ?isUid=true so Monkeytype knows this is an ID, not a name.
+    url = f"https://api.monkeytype.com/users/{USERNAME}/profile?isUid=true"
     
     try:
-        print(f"Fetching data for User: {USERNAME}...")
+        print(f"Fetching data for UID: {USERNAME}...")
         r = requests.get(url, headers=headers)
         
-        # DEBUGGING: Print the status code to see why it fails
-        print(f"API Status Code: {r.status_code}")
-        
         if r.status_code != 200:
-            print("ERROR RESPONSE:", r.text)
+            print(f"API Error: {r.status_code}")
+            print(f"Response: {r.text}")
             return []
 
         data = r.json()
@@ -35,14 +34,12 @@ def get_data():
         return []
 
     if "data" not in data or "typingStats" not in data["data"]:
-        print("Error: Data structure invalid. You might have no public stats.", data)
+        print("Error: Data found but stats are empty.", data)
         return []
 
     timestamps = []
-    # Monkeytype stores stats nested: typingStats -> time -> 15 -> [results]
     stats = data["data"]["typingStats"]
-    
-    for mode in stats: # time, words, quote, etc.
+    for mode in stats:
         mode_data = stats[mode]
         if isinstance(mode_data, dict):
             for duration in mode_data:
