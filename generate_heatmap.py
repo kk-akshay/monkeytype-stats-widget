@@ -83,11 +83,17 @@ def generate_svg(counts):
     today = datetime.datetime.now()
     cell_size = 12
     gap = 3
-    width = 53 * (cell_size + gap) + 20
-    height = 7 * (cell_size + gap) + 20
     
-    svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">']
-    svg.append('<rect width="100%" height="100%" fill="#323437" rx="8"/>') 
+    # Layout configuration
+    left_padding = 30 # Space for day labels
+    top_padding = 20  # Space for month labels
+    legend_padding = 20 # Space for legend (future proofing, or just bottom margin)
+    
+    width = 53 * (cell_size + gap) + left_padding + 20
+    height = 7 * (cell_size + gap) + top_padding + legend_padding
+    
+    svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" style="font-family: sans-serif; font-size: 10px;">']
+    svg.append(f'<rect width="100%" height="100%" fill="#323437" rx="8"/>') 
     
     colors = ["#2c2e31", "#005a5a", "#008888", "#00b9b9", "#e2b714"] 
     
@@ -95,7 +101,28 @@ def generate_svg(counts):
     last_sunday = today - datetime.timedelta(days=(current_weekday + 1) % 7) 
     start_date = last_sunday - datetime.timedelta(weeks=52)
 
+    # Day Labels (Mon, Wed, Fri)
+    day_labels = ["", "Mon", "", "Wed", "", "Fri", ""]
+    for i, label in enumerate(day_labels):
+        if label:
+            y = top_padding + i * (cell_size + gap) + cell_size - 2
+            svg.append(f'<text x="5" y="{y}" fill="#646669">{label}</text>')
+
+    # Month Labels
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    last_month_index = -1
+    
     for week in range(53):
+        # Check for month change
+        # We use the first day of the week to decide the month label position
+        week_start = start_date + datetime.timedelta(weeks=week)
+        month_index = week_start.month - 1
+        
+        if month_index != last_month_index:
+            x = left_padding + week * (cell_size + gap)
+            svg.append(f'<text x="{x}" y="{top_padding - 5}" fill="#646669">{months[month_index]}</text>')
+            last_month_index = month_index
+
         for day in range(7):
             cell_date = start_date + datetime.timedelta(weeks=week, days=day)
             date_str = cell_date.strftime('%Y-%m-%d')
@@ -109,9 +136,11 @@ def generate_svg(counts):
 
             if cell_date > today: continue
 
-            x = week * (cell_size + gap) + 10
-            y = day * (cell_size + gap) + 10
-            svg.append(f'<rect x="{x}" y="{y}" width="{cell_size}" height="{cell_size}" fill="{fill}" rx="2" />')
+            x = left_padding + week * (cell_size + gap)
+            y = top_padding + day * (cell_size + gap)
+            
+            # Add tooltip title
+            svg.append(f'<rect x="{x}" y="{y}" width="{cell_size}" height="{cell_size}" fill="{fill}" rx="2"><title>{date_str}: {count} tests</title></rect>')
 
     svg.append('</svg>')
     
