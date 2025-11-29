@@ -1,0 +1,27 @@
+name: Update Monkeytype Stats
+
+on:
+  schedule:
+    - cron: '0 * * * *' # Runs every hour
+  workflow_dispatch: # Allows you to run it manually
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Generate Monkeytype SVG
+        uses: monkeytype-hub/monkeytype-readme@v1
+        with:
+          monkeytype_api_key: ${{ secrets.MONKEYTYPE_APE_KEY }}
+          tool: 'monkeytype-readme'
+          
+      - name: Push changes
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: Update stats image
+          file_pattern: 'monkeytype-readme.svg'
