@@ -4,7 +4,7 @@ import os
 import sys
 
 # --- CONFIGURATION ---
-# Confirmed UID from your previous message
+# Confirmed Correct UID (lowercase l's)
 USERNAME = "4vNzgKl0lUPmnuCMFGFtOsGnJnp2"
 API_KEY = os.environ.get("MONKEYTYPE_API_KEY") 
 # ---------------------
@@ -16,11 +16,11 @@ def get_data():
         
     headers = {"Authorization": f"ApeKey {API_KEY}"}
     
-    # URL includes ?isUid=true to prevent 404 errors
-    url = f"https://api.monkeytype.com/users/{USERNAME}/profile?isUid=true"
+    # FIX 1: Use the /history endpoint to get raw test timestamps
+    url = f"https://api.monkeytype.com/users/{USERNAME}/history?isUid=true"
     
     try:
-        print(f"Fetching data for UID: {USERNAME}...")
+        print(f"Fetching history for UID: {USERNAME}...")
         r = requests.get(url, headers=headers)
         
         if r.status_code != 200:
@@ -33,29 +33,27 @@ def get_data():
         print(f"Connection Error: {e}")
         return []
 
-    if "data" not in data or "typingStats" not in data["data"]:
-        print("Error: Data found but stats are empty. Check Privacy settings.", data)
+    if "data" not in data:
+        print("Error: No 'data' field in response. History might be empty.", data)
         return []
 
+    # FIX 2: Correct parsing for the history list structure
+    # The history endpoint returns a list of test objects directly inside "data"
     timestamps = []
-    stats = data["data"]["typingStats"]
-    for mode in stats:
-        mode_data = stats[mode]
-        if isinstance(mode_data, dict):
-            for duration in mode_data:
-                results = mode_data[duration]
-                if isinstance(results, list):
-                    for res in results:
-                        if "timestamp" in res:
-                            timestamps.append(res["timestamp"] / 1000)
+    for entry in data["data"]:
+        if "timestamp" in entry:
+            timestamps.append(entry["timestamp"] / 1000)
+            
     return timestamps
 
 def generate_svg(timestamps):
+    # 1. Count tests per day
     counts = {}
     for ts in timestamps:
         date_str = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
         counts[date_str] = counts.get(date_str, 0) + 1
 
+    # 2. Setup Grid (Last 365 days)
     today = datetime.datetime.now()
     cell_size = 12
     gap = 3
