@@ -1,26 +1,35 @@
-name: Update Monkeytype Stats
+name: Update Heatmap
 
 on:
   schedule:
-    - cron: '0 * * * *' # Runs every hour
-  workflow_dispatch: # Allows manual trigger
+    - cron: '0 */2 * * *' # Run every 2 hours
+  workflow_dispatch: # Manual trigger button
 
 permissions:
   contents: write
 
 jobs:
-  update-card:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
-      - name: Download Stats Card
-        run: |
-          # REPLACE 'YOUR_USERNAME' BELOW WITH YOUR ACTUAL MONKEYTYPE NAME
-          curl -o monkeytype-readme.svg "https://monkeytype-readme.zeabur.app/generate-svg/Axshay_KK/serika_dark?pb=true&lb=true"
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
 
-      - name: Push changes
+      - name: Install Requests
+        run: pip install requests
+
+      - name: Run Heatmap Script
+        env:
+          # This uses the secret key you added in the very first tutorial
+          MONKEYTYPE_API_KEY: ${{ secrets.MONKEYTYPE_APE_KEY }}
+        run: python generate_heatmap.py
+
+      - name: Push Heatmap Image
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          commit_message: Update stats image
-          file_pattern: 'monkeytype-readme.svg'
+          commit_message: Update Heatmap SVG
+          file_pattern: 'monkeytype-heatmap.svg'
