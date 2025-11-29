@@ -3,23 +3,22 @@ name: Update Monkeytype Stats
 on:
   schedule:
     - cron: '0 * * * *' # Runs every hour
-  workflow_dispatch: # Allows you to run it manually
+  workflow_dispatch: # Allows manual trigger
 
 permissions:
   contents: write
 
 jobs:
-  build:
+  update-card:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
-      - name: Generate Monkeytype SVG
-        uses: monkeytype-hub/monkeytype-readme@v1
-        with:
-          monkeytype_api_key: ${{ secrets.MONKEYTYPE_APE_KEY }}
-          tool: 'monkeytype-readme'
-          
+      - name: Download Stats Card
+        run: |
+          # REPLACE 'YOUR_USERNAME' BELOW WITH YOUR ACTUAL MONKEYTYPE NAME
+          curl -o monkeytype-readme.svg "https://monkeytype-readme.zeabur.app/generate-svg/YOUR_USERNAME/serika_dark?pb=true&lb=true"
+
       - name: Push changes
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
