@@ -12,14 +12,12 @@ API_KEY = os.environ.get("MONKEYTYPE_API_KEY")
 # ---------------------
 
 def get_data():
-    if not API_KEY:
-        print("Error: Monkeytype API Key is missing.")
-        return []
-        
-    headers = {"Authorization": f"ApeKey {API_KEY}"}
+    headers = {}
+    if API_KEY:
+        headers["Authorization"] = f"ApeKey {API_KEY}"
+    else:
+        print("Warning: No API Key provided. Fetching public data only.")
     
-    # We switch back to /profile because it contains 'typingStats' with timestamps.
-    # We do NOT use ?isUid=true because we are using the username.
     url = f"https://api.monkeytype.com/users/{USERNAME}/profile"
     
     try:
@@ -29,45 +27,59 @@ def get_data():
         if r.status_code != 200:
             print(f"API Error: {r.status_code}")
             print(f"Response: {r.text}")
-            return []
+            return {}
 
         data = r.json()
     except Exception as e:
         print(f"Connection Error: {e}")
-        return []
+        return {}
 
     # Validation
     if "data" not in data:
         print("Error: No data returned.", data)
-        return []
+        return {}
 
-    if "typingStats" not in data["data"]:
-        print("Error: 'typingStats' missing. Ensure Profile > Privacy > Typing Stats is PUBLIC.", data)
-        return []
+    if "testActivity" not in data["data"]:
+        print("Error: 'testActivity' missing.", data)
+        return {}
 
-    timestamps = []
-    stats = data["data"]["typingStats"]
+    activity = data["data"]["testActivity"]
+    if "testsByDays" not in activity or "lastDay" not in activity:
+        print("Error: Invalid 'testActivity' structure.", activity)
+        return {}
+
+    tests_by_days = activity["testsByDays"]
+    last_day_ts = activity["lastDay"] / 1000 # Convert to seconds
     
-    # PARSING: Extract timestamps from the profile data
-    # This method is safer than /history because it groups data by mode
-    for mode in stats:
-        mode_data = stats[mode]
-        if isinstance(mode_data, dict):
-            for duration in mode_data:
-                results = mode_data[duration]
-                if isinstance(results, list):
-                    for res in results:
-                        if "timestamp" in res:
-                            timestamps.append(res["timestamp"] / 1000)
-                            
-    return timestamps
-
-def generate_svg(timestamps):
+    # Calculate dates backwards from lastDay
     counts = {}
-    for ts in timestamps:
-        date_str = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
-        counts[date_str] = counts.get(date_str, 0) + 1
+    last_day_date = datetime.datetime.fromtimestamp(last_day_ts)
+    
+    for i, count in enumerate(tests_by_days):
+        if count is None:
+            continue
+            
+        # testsByDays is ordered from oldest to newest? Or newest to oldest?
+        # Usually these arrays are ordered chronologically.
+        # Let's assume the last element corresponds to lastDay.
+        # Wait, let's verify the structure. 
+        # The API response showed a list with many nulls and then a 3 at the end.
+        # And lastDay was 1764374400000 (2025-11-29).
+        # So the last element is the count for lastDay.
+        # And we iterate backwards.
+        
+        # Actually, let's iterate normally but calculate the date for each index.
+        # If the array has N elements, the last one is at index N-1 and corresponds to lastDay.
+        # So element at index i corresponds to lastDay - (N - 1 - i) days.
+        
+        days_ago = len(tests_by_days) - 1 - i
+        date = last_day_date - datetime.timedelta(days=days_ago)
+        date_str = date.strftime('%Y-%m-%d')
+        counts[date_str] = count
+                            
+    return counts
 
+def generate_svg(counts):
     today = datetime.datetime.now()
     cell_size = 12
     gap = 3
@@ -107,9 +119,9 @@ def generate_svg(timestamps):
         f.write("\n".join(svg))
 
 if __name__ == "__main__":
-    ts = get_data()
-    if ts:
-        generate_svg(ts)
-        print(f"SUCCESS: Generated heatmap with {len(ts)} total tests.")
+    counts = get_data()
+    if counts:
+        generate_svg(counts)
+        print(f"SUCCESS: Generated heatmap with {sum(counts.values())} total tests.")
     else:
         print("FAILED: No data found.")
