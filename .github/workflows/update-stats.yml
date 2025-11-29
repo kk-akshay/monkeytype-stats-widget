@@ -17,7 +17,7 @@ jobs:
       - name: Download Stats Card
         run: |
           # REPLACE 'YOUR_USERNAME' BELOW WITH YOUR ACTUAL MONKEYTYPE NAME
-          curl -o monkeytype-readme.svg "https://monkeytype-readme.zeabur.app/generate-svg/YOUR_USERNAME/serika_dark?pb=true&lb=true"
+          curl -o monkeytype-readme.svg "https://monkeytype-readme.zeabur.app/generate-svg/Axshay_KK/serika_dark?pb=true&lb=true"
 
       - name: Push changes
         uses: stefanzweifel/git-auto-commit-action@v4
