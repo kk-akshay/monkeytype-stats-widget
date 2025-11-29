@@ -2,10 +2,12 @@ import requests
 import datetime
 import os
 import sys
+import json
 
 # --- CONFIGURATION ---
-# Confirmed Correct UID (lowercase l's)
-USERNAME = "4vNzgKl0lUPmnuCMFGFtOsGnJnp2"
+# CRITICAL: We use the Monkeytype USERNAME, not the UID.
+# Your screenshots confirm your user is "Axshay_KK"
+USERNAME = "Axshay_KK"
 API_KEY = os.environ.get("MONKEYTYPE_API_KEY") 
 # ---------------------
 
@@ -16,11 +18,12 @@ def get_data():
         
     headers = {"Authorization": f"ApeKey {API_KEY}"}
     
-    # FIX 1: Use the /history endpoint to get raw test timestamps
-    url = f"https://api.monkeytype.com/users/{USERNAME}/history?isUid=true"
+    # We switch back to /profile because it contains 'typingStats' with timestamps.
+    # We do NOT use ?isUid=true because we are using the username.
+    url = f"https://api.monkeytype.com/users/{USERNAME}/profile"
     
     try:
-        print(f"Fetching history for UID: {USERNAME}...")
+        print(f"Fetching data for USER: {USERNAME}...")
         r = requests.get(url, headers=headers)
         
         if r.status_code != 200:
@@ -33,27 +36,38 @@ def get_data():
         print(f"Connection Error: {e}")
         return []
 
+    # Validation
     if "data" not in data:
-        print("Error: No 'data' field in response. History might be empty.", data)
+        print("Error: No data returned.", data)
         return []
 
-    # FIX 2: Correct parsing for the history list structure
-    # The history endpoint returns a list of test objects directly inside "data"
+    if "typingStats" not in data["data"]:
+        print("Error: 'typingStats' missing. Ensure Profile > Privacy > Typing Stats is PUBLIC.", data)
+        return []
+
     timestamps = []
-    for entry in data["data"]:
-        if "timestamp" in entry:
-            timestamps.append(entry["timestamp"] / 1000)
-            
+    stats = data["data"]["typingStats"]
+    
+    # PARSING: Extract timestamps from the profile data
+    # This method is safer than /history because it groups data by mode
+    for mode in stats:
+        mode_data = stats[mode]
+        if isinstance(mode_data, dict):
+            for duration in mode_data:
+                results = mode_data[duration]
+                if isinstance(results, list):
+                    for res in results:
+                        if "timestamp" in res:
+                            timestamps.append(res["timestamp"] / 1000)
+                            
     return timestamps
 
 def generate_svg(timestamps):
-    # 1. Count tests per day
     counts = {}
     for ts in timestamps:
         date_str = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
         counts[date_str] = counts.get(date_str, 0) + 1
 
-    # 2. Setup Grid (Last 365 days)
     today = datetime.datetime.now()
     cell_size = 12
     gap = 3
