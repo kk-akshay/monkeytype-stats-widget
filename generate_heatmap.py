@@ -5,61 +5,72 @@ import sys
 import json
 
 # --- CONFIGURATION ---
-# CRITICAL: We use the Monkeytype USERNAME, not the UID.
-# Your screenshots confirm your user is "Axshay_KK"
-USERNAME = "Axshay_KK"
+# We are using the /results endpoint because it relies on the API KEY.
+# This bypasses the Username/UID confusion entirely.
 API_KEY = os.environ.get("MONKEYTYPE_API_KEY") 
 # ---------------------
 
 def get_data():
     if not API_KEY:
-        print("Error: Monkeytype API Key is missing.")
+        print("CRITICAL ERROR: Monkeytype API Key is missing from secrets.")
         return []
         
     headers = {"Authorization": f"ApeKey {API_KEY}"}
     
-    # We switch back to /profile because it contains 'typingStats' with timestamps.
-    # We do NOT use ?isUid=true because we are using the username.
-    url = f"https://api.monkeytype.com/users/{USERNAME}/profile"
+    # We use /results because it gives the detailed history needed for the graph
+    # We limit to 1000 tests to ensure we get enough data for the year
+    url = "https://api.monkeytype.com/results"
+    params = {"limit": 1000}
     
     try:
-        print(f"Fetching data for USER: {USERNAME}...")
-        r = requests.get(url, headers=headers)
+        print(f"DEBUG: Requesting data from {url}...")
+        r = requests.get(url, headers=headers, params=params)
         
+        # --- DEBUGGING SECTION ---
+        print(f"DEBUG: Status Code: {r.status_code}")
+        
+        try:
+            response_json = r.json()
+            # Print the first 200 characters of the response to check structure
+            # (Printing the whole thing might be too huge for logs, but we print a summary)
+            print("--- RAW MONKEYTYPE RESPONSE START ---")
+            print(json.dumps(response_json, indent=2)[:2000]) # Limit to first 2000 chars
+            print("... (truncated) ...")
+            print("--- RAW MONKEYTYPE RESPONSE END ---")
+        except:
+            print("DEBUG: Could not parse JSON. Raw Text:", r.text)
+            return []
+        # -------------------------
+
         if r.status_code != 200:
-            print(f"API Error: {r.status_code}")
-            print(f"Response: {r.text}")
             return []
 
-        data = r.json()
+        data = response_json
+
     except Exception as e:
         print(f"Connection Error: {e}")
         return []
 
-    # Validation
     if "data" not in data:
-        print("Error: No data returned.", data)
+        print("ERROR: Response does not contain 'data' list.")
+        return []
+    
+    result_list = data["data"]
+    
+    if not result_list:
+        print("DEBUG: The 'data' list is empty. You have 0 tests recorded on this account.")
         return []
 
-    if "typingStats" not in data["data"]:
-        print("Error: 'typingStats' missing. Ensure Profile > Privacy > Typing Stats is PUBLIC.", data)
-        return []
+    print(f"SUCCESS: Found {len(result_list)} tests.")
 
     timestamps = []
-    stats = data["data"]["typingStats"]
-    
-    # PARSING: Extract timestamps from the profile data
-    # This method is safer than /history because it groups data by mode
-    for mode in stats:
-        mode_data = stats[mode]
-        if isinstance(mode_data, dict):
-            for duration in mode_data:
-                results = mode_data[duration]
-                if isinstance(results, list):
-                    for res in results:
-                        if "timestamp" in res:
-                            timestamps.append(res["timestamp"] / 1000)
-                            
+    for test in result_list:
+        # Check for different timestamp keys used by different API versions
+        if "timestamp" in test:
+            timestamps.append(test["timestamp"] / 1000)
+        elif "ts" in test:
+            timestamps.append(test["ts"] / 1000)
+            
     return timestamps
 
 def generate_svg(timestamps):
@@ -110,6 +121,6 @@ if __name__ == "__main__":
     ts = get_data()
     if ts:
         generate_svg(ts)
-        print(f"SUCCESS: Generated heatmap with {len(ts)} total tests.")
+        print(f"Heatmap generated successfully with {len(ts)} points.")
     else:
-        print("FAILED: No data found.")
+        print("FAILED: No timestamp data found.")
