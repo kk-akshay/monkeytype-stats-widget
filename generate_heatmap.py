@@ -4,8 +4,8 @@ import os
 import sys
 
 # --- CONFIGURATION ---
-# I corrected the typo in your UID (changed 'l' to '1')
-USERNAME = "4vNzgK101UPmnuCMFGFtOsGnJnp2"
+# Confirmed UID from your previous message
+USERNAME = "4vNzgKl0lUPmnuCMFGFtOsGnJnp2"
 API_KEY = os.environ.get("MONKEYTYPE_API_KEY") 
 # ---------------------
 
@@ -16,7 +16,7 @@ def get_data():
         
     headers = {"Authorization": f"ApeKey {API_KEY}"}
     
-    # We use ?isUid=true so Monkeytype knows this is an ID, not a name.
+    # URL includes ?isUid=true to prevent 404 errors
     url = f"https://api.monkeytype.com/users/{USERNAME}/profile?isUid=true"
     
     try:
@@ -34,7 +34,7 @@ def get_data():
         return []
 
     if "data" not in data or "typingStats" not in data["data"]:
-        print("Error: Data found but stats are empty.", data)
+        print("Error: Data found but stats are empty. Check Privacy settings.", data)
         return []
 
     timestamps = []
@@ -51,13 +51,11 @@ def get_data():
     return timestamps
 
 def generate_svg(timestamps):
-    # 1. Count tests per day
     counts = {}
     for ts in timestamps:
         date_str = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
         counts[date_str] = counts.get(date_str, 0) + 1
 
-    # 2. Setup Grid (Last 365 days)
     today = datetime.datetime.now()
     cell_size = 12
     gap = 3
