@@ -363,6 +363,12 @@
 <rect x="775" y="55" width="12" height="12" fill="#2c2e31" rx="2" />
 <rect x="775" y="70" width="12" height="12" fill="#2c2e31" rx="2" />
 <rect x="775" y="85" width="12" height="12" fill="#2c2e31" rx="2" />
-<rect x="775" y="100" width="12" height="12" fill="#005a5a" rx="2" />
+<rect x="775" y="100" width="12" height="12" fill="#2c2e31" rx="2" />
 <rect x="790" y="10" width="12" height="12" fill="#2c2e31" rx="2" />
+<rect x="790" y="25" width="12" height="12" fill="#2c2e31" rx="2" />
+<rect x="790" y="40" width="12" height="12" fill="#2c2e31" rx="2" />
+<rect x="790" y="55" width="12" height="12" fill="#2c2e31" rx="2" />
+<rect x="790" y="70" width="12" height="12" fill="#2c2e31" rx="2" />
+<rect x="790" y="85" width="12" height="12" fill="#2c2e31" rx="2" />
+<rect x="790" y="100" width="12" height="12" fill="#005a5a" rx="2" />
 </svg>
