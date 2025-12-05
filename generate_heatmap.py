@@ -5,15 +5,16 @@ import sys
 import json
 
 # --- CONFIGURATION ---
-# CRITICAL: We use the Monkeytype USERNAME, not the UID.
-# Your screenshots confirm your user is "Axshay_KK"
 USERNAME = "Axshay_KK"
-API_KEY = os.environ.get("MONKEYTYPE_API_KEY") 
+
+# UPDATED: Tries to find your 'APE' key first, so it works with your existing setup
+API_KEY = os.environ.get("MONKEYTYPE_APE_KEY") or os.environ.get("MONKEYTYPE_API_KEY")
 # ---------------------
 
 def get_data():
     headers = {}
     if API_KEY:
+        # Note: Monkeytype usually expects "ApeKey" in the header value
         headers["Authorization"] = f"ApeKey {API_KEY}"
     else:
         print("Warning: No API Key provided. Fetching public data only.")
@@ -26,7 +27,6 @@ def get_data():
         
         if r.status_code != 200:
             print(f"API Error: {r.status_code}")
-            print(f"Response: {r.text}")
             return {}
 
         data = r.json()
@@ -34,48 +34,26 @@ def get_data():
         print(f"Connection Error: {e}")
         return {}
 
-    # Validation
-    if "data" not in data:
-        print("Error: No data returned.", data)
-        return {}
-
-    if "testActivity" not in data["data"]:
-        print("Error: 'testActivity' missing.", data)
+    if "data" not in data or "testActivity" not in data["data"]:
         return {}
 
     activity = data["data"]["testActivity"]
-    if "testsByDays" not in activity or "lastDay" not in activity:
-        print("Error: Invalid 'testActivity' structure.", activity)
+    tests_by_days = activity.get("testsByDays", [])
+    last_day_ts = activity.get("lastDay")
+    
+    if not tests_by_days or not last_day_ts:
         return {}
 
-    tests_by_days = activity["testsByDays"]
-    last_day_ts = activity["lastDay"] / 1000 # Convert to seconds
-    
-    # Calculate dates backwards from lastDay
+    last_day_ts = last_day_ts / 1000 
     counts = {}
     last_day_date = datetime.datetime.fromtimestamp(last_day_ts)
     
+    # Process data
     for i, count in enumerate(tests_by_days):
-        if count is None:
-            continue
-            
-        # testsByDays is ordered from oldest to newest? Or newest to oldest?
-        # Usually these arrays are ordered chronologically.
-        # Let's assume the last element corresponds to lastDay.
-        # Wait, let's verify the structure. 
-        # The API response showed a list with many nulls and then a 3 at the end.
-        # And lastDay was 1764374400000 (2025-11-29).
-        # So the last element is the count for lastDay.
-        # And we iterate backwards.
-        
-        # Actually, let's iterate normally but calculate the date for each index.
-        # If the array has N elements, the last one is at index N-1 and corresponds to lastDay.
-        # So element at index i corresponds to lastDay - (N - 1 - i) days.
-        
+        if count is None: continue
         days_ago = len(tests_by_days) - 1 - i
         date = last_day_date - datetime.timedelta(days=days_ago)
-        date_str = date.strftime('%Y-%m-%d')
-        counts[date_str] = count
+        counts[date.strftime('%Y-%m-%d')] = count
                             
     return counts
 
@@ -84,43 +62,48 @@ def generate_svg(counts):
     cell_size = 12
     gap = 3
     
-    # Layout configuration
-    left_padding = 30 # Space for day labels
-    top_padding = 20  # Space for month labels
-    legend_padding = 20 # Space for legend (future proofing, or just bottom margin)
+    # --- CUSTOMIZATION: 3 MONTHS & YELLOW THEME ---
+    weeks_to_show = 13  # Reduced to ~3 months
     
-    width = 53 * (cell_size + gap) + left_padding + 20
+    # Monkeytype Yellow Theme (Serika Dark style)
+    # [Empty, Low, Med, High, Max]
+    colors = ["#2c2e31", "#665c27", "#998a2f", "#cca72f", "#e2b714"] 
+    background_color = "#323437" # Dark Grey Background
+    text_color = "#646669"
+    # ---------------------------------------------
+
+    left_padding = 30 
+    top_padding = 20  
+    legend_padding = 20 
+    
+    width = weeks_to_show * (cell_size + gap) + left_padding + 20
     height = 7 * (cell_size + gap) + top_padding + legend_padding
     
     svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" style="font-family: sans-serif; font-size: 10px;">']
-    svg.append(f'<rect width="100%" height="100%" fill="#323437" rx="8"/>') 
-    
-    colors = ["#2c2e31", "#005a5a", "#008888", "#00b9b9", "#e2b714"] 
+    svg.append(f'<rect width="100%" height="100%" fill="{background_color}" rx="8"/>') 
     
     current_weekday = today.weekday() 
     last_sunday = today - datetime.timedelta(days=(current_weekday + 1) % 7) 
-    start_date = last_sunday - datetime.timedelta(weeks=52)
+    start_date = last_sunday - datetime.timedelta(weeks=weeks_to_show - 1)
 
-    # Day Labels (Mon, Wed, Fri)
+    # Day Labels
     day_labels = ["", "Mon", "", "Wed", "", "Fri", ""]
     for i, label in enumerate(day_labels):
         if label:
             y = top_padding + i * (cell_size + gap) + cell_size - 2
-            svg.append(f'<text x="5" y="{y}" fill="#646669">{label}</text>')
+            svg.append(f'<text x="5" y="{y}" fill="{text_color}">{label}</text>')
 
-    # Month Labels
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    # Month Labels & Squares
     last_month_index = -1
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     
-    for week in range(53):
-        # Check for month change
-        # We use the first day of the week to decide the month label position
+    for week in range(weeks_to_show):
         week_start = start_date + datetime.timedelta(weeks=week)
         month_index = week_start.month - 1
         
         if month_index != last_month_index:
             x = left_padding + week * (cell_size + gap)
-            svg.append(f'<text x="{x}" y="{top_padding - 5}" fill="#646669">{months[month_index]}</text>')
+            svg.append(f'<text x="{x}" y="{top_padding - 5}" fill="{text_color}">{months[month_index]}</text>')
             last_month_index = month_index
 
         for day in range(7):
@@ -139,7 +122,6 @@ def generate_svg(counts):
             x = left_padding + week * (cell_size + gap)
             y = top_padding + day * (cell_size + gap)
             
-            # Add tooltip title
             svg.append(f'<rect x="{x}" y="{y}" width="{cell_size}" height="{cell_size}" fill="{fill}" rx="2"><title>{date_str}: {count} tests</title></rect>')
 
     svg.append('</svg>')
