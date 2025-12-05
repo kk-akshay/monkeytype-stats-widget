@@ -1,9 +1,9 @@
-name: Update Heatmap
+name: Generate Monkeytype Heatmap
 
 on:
   schedule:
-    - cron: '0 */2 * * *' # Run every 2 hours
-  workflow_dispatch: # Manual trigger button
+    - cron: "0 * * * *" # Runs every hour
+  workflow_dispatch:      # Manual run button
 
 permissions:
   contents: write
@@ -12,24 +12,30 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
-      - name: Install Requests
+      - name: Install Dependencies
         run: pip install requests
 
-      - name: Run Heatmap Script
+      - name: Run Script
         env:
-          # This uses the secret key you added in the very first tutorial
-          MONKEYTYPE_API_KEY: ${{ secrets.MONKEYTYPE_APE_KEY }}
+          # Checks both key names to be safe
+          MONKEYTYPE_APE_KEY: ${{ secrets.MONKEYTYPE_APE_KEY }}
+          MONKEYTYPE_API_KEY: ${{ secrets.MONKEYTYPE_API_KEY }}
         run: python generate_heatmap.py
 
-      - name: Push Heatmap Image
-        uses: stefanzweifel/git-auto-commit-action@v4
-        with:
-          commit_message: Update Heatmap SVG
-          file_pattern: 'monkeytype-heatmap.svg'
+      - name: Commit and Push
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add monkeytype-heatmap.svg
+          git commit -m "Update Heatmap SVG" || exit 0
+          # THE FIX: Pull the latest website edits before pushing
+          git pull --rebase origin main
+          git push
